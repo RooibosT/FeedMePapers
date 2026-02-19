@@ -1,0 +1,53 @@
+# ============================================================
+# Paper-AI: 최신 논문 검색 & 한국어 요약 → Notion 정리 도구
+# ============================================================
+
+# 검색 키워드 (여러 개 가능)
+keywords:
+  - "embodied AI"
+  - "robot navigation"
+  - "visual navigation"
+
+# 검색 기간 (최근 N일)
+date_range_days: 7
+
+# 최대 검색 결과 수 (키워드당)
+max_results_per_keyword: 20
+
+# ─── 학회/venue 필터 ───────────────────────────────────────
+# 비워두면 전체 검색 (필터 없음)
+# Semantic Scholar venue 이름 기준
+venues:
+  # - "ArXiv"
+  - "CVPR"
+  - "ICCV"
+  - "ECCV"
+  - "NeurIPS"
+  # - "ICML"
+  # - "ICLR"
+  # - "AAAI"
+  # - "IJCAI"
+  # - "CoRL"
+  # - "IROS"
+  # - "ICRA"
+  # - "RSS"
+
+# ─── Local LLM 설정 ───────────────────────────────────────
+llm:
+  provider: "ollama"            # ollama
+  model: "qwen2.5:7b"          # Qwen2.5 7B - 한국어 우수, ~5GB VRAM
+  base_url: "http://localhost:11434"
+  timeout: 120                  # seconds per request
+  temperature: 0.3              # 번역은 낮은 temperature 권장
+
+# ─── Notion 설정 ──────────────────────────────────────────
+# .env 파일에서 NOTION_TOKEN, NOTION_DATABASE_ID 설정
+notion:
+  enabled: true                # true로 변경하면 Notion에 저장
+  # database_id는 .env에서 읽음
+
+# ─── 출력 설정 ────────────────────────────────────────────
+output:
+  console: true                 # 콘솔 출력
+  json_file: true               # results/ 디렉토리에 JSON 저장
+  json_dir: "results"
