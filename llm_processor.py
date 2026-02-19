@@ -40,7 +40,7 @@ Abstract: {abstract}"""
 class LLMConfig:
     model: str = "qwen2.5:7b"
     base_url: str = "http://localhost:11434"
-    timeout: int = 120
+    timeout: int = 180
     temperature: float = 0.3
 
 
@@ -91,7 +91,11 @@ def _call_llm(config: LLMConfig, prompt: str, max_retries: int = 2) -> str:
                 logger.warning(f"[LLM] Chinese detected (attempt {attempt + 1}), retrying...")
                 messages = [
                     {"role": "system", "content": SYSTEM_MSG},
-                    {"role": "user", "content": prompt + "\n\n[CRITICAL] 이전 응답에 중국어가 포함되었습니다. 반드시 한국어만 사용하세요!"},
+                    {
+                        "role": "user",
+                        "content": prompt
+                        + "\n\n[CRITICAL] 이전 응답에 중국어가 포함되었습니다. 반드시 한국어만 사용하세요!",
+                    },
                 ]
                 continue
 
@@ -105,13 +109,22 @@ def _call_llm(config: LLMConfig, prompt: str, max_retries: int = 2) -> str:
     return ""
 
 
+MAX_ABSTRACT_CHARS = 3000
+
+
+def _truncate_abstract(abstract: str) -> str:
+    if len(abstract) <= MAX_ABSTRACT_CHARS:
+        return abstract
+    return abstract[:MAX_ABSTRACT_CHARS] + "..."
+
+
 def translate_abstract(config: LLMConfig, abstract: str) -> str:
-    prompt = TRANSLATE_PROMPT.format(abstract=abstract)
+    prompt = TRANSLATE_PROMPT.format(abstract=_truncate_abstract(abstract))
     return _call_llm(config, prompt)
 
 
 def extract_novelty(config: LLMConfig, title: str, abstract: str) -> str:
-    prompt = NOVELTY_PROMPT.format(title=title, abstract=abstract)
+    prompt = NOVELTY_PROMPT.format(title=title, abstract=_truncate_abstract(abstract))
     return _call_llm(config, prompt)
 
 

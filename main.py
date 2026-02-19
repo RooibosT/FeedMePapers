@@ -78,7 +78,9 @@ def main():
     parser.add_argument("-c", "--config", default="config.yaml")
     parser.add_argument("--no-llm", action="store_true", help="Skip LLM translation/summary")
     parser.add_argument("--no-notion", action="store_true", help="Skip Notion publishing")
-    parser.add_argument("--setup-notion-db", metavar="PAGE_ID", help="Create Notion database under this page")
+    parser.add_argument(
+        "--setup-notion-db", metavar="PAGE_ID", help="Create Notion database under this page"
+    )
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -95,6 +97,7 @@ def main():
             env_text = env_path.read_text()
             if "NOTION_DATABASE_ID=" in env_text:
                 import re
+
                 env_text = re.sub(
                     r"NOTION_DATABASE_ID=.*",
                     f"NOTION_DATABASE_ID={db_id}",

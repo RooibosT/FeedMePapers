@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 S2_BASE = "https://api.semanticscholar.org/graph/v1"
 S2_FIELDS = (
-    "title,abstract,authors,authors.affiliations,venue,year,"
+    "title,abstract,authors.name,authors.affiliations,venue,year,"
     "publicationDate,externalIds,url,openAccessPdf"
 )
 ARXIV_API = "http://export.arxiv.org/api/query"
@@ -45,11 +45,24 @@ class Paper:
 
 @dataclass
 class SearchConfig:
-    keywords: list[str]
+    keywords: list  # str (single) or list[str] (AND combination)
     date_range_days: int = 7
     max_results_per_keyword: int = 20
     venues: list[str] = field(default_factory=list)
     s2_api_key: str = ""
+
+
+def _normalize_keyword(entry) -> tuple[str, str, list[str], str]:
+    """Return (s2_query, arxiv_query, keyword_tags, display_name)."""
+    if isinstance(entry, list):
+        terms = [str(t) for t in entry if t]
+        if not terms:
+            return "", "", [], ""
+        s2_query = " ".join(f'"{t}"' for t in terms)
+        arxiv_query = " AND ".join(f'all:"{t}"' for t in terms)
+        return s2_query, arxiv_query, list(terms), " + ".join(terms)
+    kw = str(entry)
+    return kw, f"all:{kw}", [kw], kw
 
 
 def _date_range(days: int) -> tuple[str, str]:
@@ -79,11 +92,14 @@ def search_semantic_scholar(cfg: SearchConfig) -> list[Paper]:
     if cfg.s2_api_key:
         headers["X-API-KEY"] = cfg.s2_api_key
 
-    for keyword in cfg.keywords:
-        logger.info(f"[S2] Searching: '{keyword}' ({start_date} ~ {end_date})")
+    for kw_entry in cfg.keywords:
+        s2_query, _, keyword_tags, display = _normalize_keyword(kw_entry)
+        if not s2_query:
+            continue
+        logger.info(f"[S2] Searching: '{display}' ({start_date} ~ {end_date})")
 
         params: dict = {
-            "query": keyword,
+            "query": s2_query,
             "limit": cfg.max_results_per_keyword,
             "fields": S2_FIELDS,
             "publicationDateOrYear": date_filter,
@@ -99,24 +115,26 @@ def search_semantic_scholar(cfg: SearchConfig) -> list[Paper]:
                     timeout=30,
                 )
                 if resp.status_code == 429:
-                    wait = 2 ** attempt + 1
-                    logger.warning(f"[S2] Rate limited, waiting {wait}s (attempt {attempt + 1}/4)...")
+                    wait = 2**attempt + 1
+                    logger.warning(
+                        f"[S2] Rate limited, waiting {wait}s (attempt {attempt + 1}/4)..."
+                    )
                     time.sleep(wait)
                     continue
                 resp.raise_for_status()
                 break
             except requests.RequestException as e:
-                logger.error(f"[S2] Request failed for '{keyword}': {e}")
+                logger.error(f"[S2] Request failed for '{display}': {e}")
                 resp = None
                 break
 
         if resp is None or resp.status_code != 200:
-            logger.warning(f"[S2] Skipping '{keyword}' after retries")
+            logger.warning(f"[S2] Skipping '{display}' after retries")
             continue
 
         data = resp.json()
         total = data.get("total", 0)
-        logger.info(f"[S2] Found {total} results for '{keyword}'")
+        logger.info(f"[S2] Found {total} results for '{display}'")
 
         for item in data.get("data") or []:
             if not item.get("title") or not item.get("abstract"):
@@ -136,20 +154,20 @@ def search_semantic_scholar(cfg: SearchConfig) -> list[Paper]:
             if arxiv_id and not paper_url:
                 paper_url = f"https://arxiv.org/abs/{arxiv_id}"
 
-            oaPdf = item.get("openAccessPdf") or {}
-
-            papers.append(Paper(
-                title=item["title"],
-                authors=names,
-                affiliations=affs,
-                abstract=item["abstract"],
-                venue=venue,
-                date=item.get("publicationDate") or str(item.get("year") or ""),
-                url=paper_url,
-                arxiv_id=arxiv_id,
-                source="semantic_scholar",
-                keywords=[keyword],
-            ))
+            papers.append(
+                Paper(
+                    title=item["title"],
+                    authors=names,
+                    affiliations=affs,
+                    abstract=item["abstract"],
+                    venue=venue,
+                    date=item.get("publicationDate") or str(item.get("year") or ""),
+                    url=paper_url,
+                    arxiv_id=arxiv_id,
+                    source="semantic_scholar",
+                    keywords=list(keyword_tags),
+                )
+            )
 
         if not cfg.s2_api_key:
             time.sleep(1.1)
@@ -161,11 +179,14 @@ def search_arxiv(cfg: SearchConfig) -> list[Paper]:
     papers: list[Paper] = []
     ns = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
 
-    for keyword in cfg.keywords:
-        logger.info(f"[arxiv] Searching: '{keyword}'")
+    for kw_entry in cfg.keywords:
+        _, arxiv_query, keyword_tags, display = _normalize_keyword(kw_entry)
+        if not arxiv_query:
+            continue
+        logger.info(f"[arxiv] Searching: '{display}'")
 
         params = {
-            "search_query": f"all:{keyword}",
+            "search_query": arxiv_query,
             "sortBy": "submittedDate",
             "sortOrder": "descending",
             "max_results": cfg.max_results_per_keyword,
@@ -175,7 +196,7 @@ def search_arxiv(cfg: SearchConfig) -> list[Paper]:
             resp = requests.get(ARXIV_API, params=params, timeout=30)
             resp.raise_for_status()
         except requests.RequestException as e:
-            logger.error(f"[arxiv] Request failed for '{keyword}': {e}")
+            logger.error(f"[arxiv] Request failed for '{display}': {e}")
             continue
 
         root = ET.fromstring(resp.text)
@@ -195,10 +216,14 @@ def search_arxiv(cfg: SearchConfig) -> list[Paper]:
                 continue
 
             if cfg.venues:
-                categories = [c.get("term", "") for c in entry.findall("arxiv:primary_category", ns)]
+                categories = [
+                    c.get("term", "") for c in entry.findall("arxiv:primary_category", ns)
+                ]
                 categories += [c.get("term", "") for c in entry.findall("atom:category", ns)]
                 cat_str = " ".join(categories).lower()
-                venue_matched = any(v.lower() in cat_str for v in cfg.venues) or "arxiv" in [v.lower() for v in cfg.venues]
+                venue_matched = any(v.lower() in cat_str for v in cfg.venues) or "arxiv" in [
+                    v.lower() for v in cfg.venues
+                ]
                 if not venue_matched:
                     continue
 
@@ -218,18 +243,20 @@ def search_arxiv(cfg: SearchConfig) -> list[Paper]:
             arxiv_id = (entry.findtext("atom:id", "", ns) or "").split("/abs/")[-1]
             date_str = published[:10] if published else ""
 
-            papers.append(Paper(
-                title=title,
-                authors=authors,
-                affiliations=affiliations,
-                abstract=abstract,
-                venue="arxiv",
-                date=date_str,
-                url=link or f"https://arxiv.org/abs/{arxiv_id}",
-                arxiv_id=arxiv_id,
-                source="arxiv",
-                keywords=[keyword],
-            ))
+            papers.append(
+                Paper(
+                    title=title,
+                    authors=authors,
+                    affiliations=affiliations,
+                    abstract=abstract,
+                    venue="arxiv",
+                    date=date_str,
+                    url=link or f"https://arxiv.org/abs/{arxiv_id}",
+                    arxiv_id=arxiv_id,
+                    source="arxiv",
+                    keywords=list(keyword_tags),
+                )
+            )
 
         time.sleep(0.5)
 
@@ -255,5 +282,7 @@ def search_papers(cfg: SearchConfig) -> list[Paper]:
                     seen[key].keywords.append(kw)
 
     merged.sort(key=lambda p: p.date, reverse=True)
-    logger.info(f"[search] Total unique papers: {len(merged)} (S2: {len(s2_papers)}, arxiv: {len(arxiv_papers)})")
+    logger.info(
+        f"[search] Total unique papers: {len(merged)} (S2: {len(s2_papers)}, arxiv: {len(arxiv_papers)})"
+    )
     return merged

@@ -2,7 +2,14 @@
 # Paper-AI: 최신 논문 검색 & 한국어 요약 → Notion 정리 도구
 # ============================================================
 
-# 검색 키워드 (여러 개 가능)
+# ─── 검색 키워드 ──────────────────────────────────────────
+# 단일 키워드: 문자열 → 해당 키워드가 포함된 논문 검색
+# AND 조합:   리스트 → 모든 키워드가 동시에 포함된 논문만 검색
+#
+# 예시:
+#   - "embodied AI"                        ← 단일 검색
+#   - ["embodied AI", "navigation"]        ← AND 조합 (둘 다 포함된 논문만)
+#   - ["robot", "manipulation", "grasp"]   ← AND 조합 (셋 다 포함된 논문만)
 keywords:
   - "embodied AI"
   - "robot navigation"
@@ -37,7 +44,7 @@ llm:
   provider: "ollama"            # ollama
   model: "qwen2.5:7b"          # Qwen2.5 7B - 한국어 우수, ~5GB VRAM
   base_url: "http://localhost:11434"
-  timeout: 120                  # seconds per request
+  timeout: 180                  # seconds per request
   temperature: 0.3              # 번역은 낮은 temperature 권장
 
 # ─── Notion 설정 ──────────────────────────────────────────
