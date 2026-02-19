@@ -50,6 +50,8 @@ class SearchConfig:
     max_results_per_keyword: int = 20
     venues: list[str] = field(default_factory=list)
     s2_api_key: str = ""
+    fields_of_study: list[str] = field(default_factory=list)
+    arxiv_categories: list[str] = field(default_factory=list)
 
 
 def _normalize_keyword(entry) -> tuple[str, str, list[str], str]:
@@ -59,10 +61,11 @@ def _normalize_keyword(entry) -> tuple[str, str, list[str], str]:
         if not terms:
             return "", "", [], ""
         s2_query = " ".join(f'"{t}"' for t in terms)
-        arxiv_query = " AND ".join(f'all:"{t}"' for t in terms)
+        arxiv_parts = [f'(ti:"{t}" OR abs:"{t}")' for t in terms]
+        arxiv_query = " AND ".join(arxiv_parts)
         return s2_query, arxiv_query, list(terms), " + ".join(terms)
     kw = str(entry)
-    return kw, f"all:{kw}", [kw], kw
+    return kw, f'(ti:"{kw}" OR abs:"{kw}")', [kw], kw
 
 
 def _date_range(days: int) -> tuple[str, str]:
@@ -104,6 +107,8 @@ def search_semantic_scholar(cfg: SearchConfig) -> list[Paper]:
             "fields": S2_FIELDS,
             "publicationDateOrYear": date_filter,
         }
+        if cfg.fields_of_study:
+            params["fieldsOfStudy"] = ",".join(cfg.fields_of_study)
 
         resp = None
         for attempt in range(4):
@@ -179,6 +184,11 @@ def search_arxiv(cfg: SearchConfig) -> list[Paper]:
     papers: list[Paper] = []
     ns = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
 
+    cat_filter = ""
+    if cfg.arxiv_categories:
+        cat_parts = " OR ".join(f"cat:{c}" for c in cfg.arxiv_categories)
+        cat_filter = f" AND ({cat_parts})"
+
     for kw_entry in cfg.keywords:
         _, arxiv_query, keyword_tags, display = _normalize_keyword(kw_entry)
         if not arxiv_query:
@@ -186,7 +196,7 @@ def search_arxiv(cfg: SearchConfig) -> list[Paper]:
         logger.info(f"[arxiv] Searching: '{display}'")
 
         params = {
-            "search_query": arxiv_query,
+            "search_query": arxiv_query + cat_filter,
             "sortBy": "submittedDate",
             "sortOrder": "descending",
             "max_results": cfg.max_results_per_keyword,

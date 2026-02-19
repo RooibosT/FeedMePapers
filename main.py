@@ -118,6 +118,8 @@ def main():
         max_results_per_keyword=cfg.get("max_results_per_keyword", 20),
         venues=cfg.get("venues") or [],
         s2_api_key=os.environ.get("S2_API_KEY", ""),
+        fields_of_study=cfg.get("fields_of_study") or [],
+        arxiv_categories=cfg.get("arxiv_categories") or [],
     )
 
     logger.info("Step 1: Searching papers...")

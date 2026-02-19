@@ -21,15 +21,34 @@ date_range_days: 7
 # 최대 검색 결과 수 (키워드당)
 max_results_per_keyword: 20
 
+# ─── 검색 정밀도 필터 ─────────────────────────────────────
+# Semantic Scholar: fieldsOfStudy 필터 (비워두면 전체)
+# 가능한 값: Computer Science, Engineering, Physics, Mathematics, Medicine, Biology, ...
+fields_of_study:
+  - "Computer Science"
+  - "Engineering"
+
+# arxiv: 카테고리 필터 (비워두면 전체)
+# AI/ML/CV/Robotics 관련 주요 카테고리:
+#   cs.AI, cs.CV, cs.RO, cs.LG, cs.CL, cs.MA, cs.NE, cs.HC, eess.SY
+arxiv_categories:
+  - "cs.AI"
+  - "cs.CV"
+  - "cs.RO"
+  - "cs.LG"
+  - "cs.CL"
+  - "cs.MA"
+  - "cs.NE"
+
 # ─── 학회/venue 필터 ───────────────────────────────────────
 # 비워두면 전체 검색 (필터 없음)
 # Semantic Scholar venue 이름 기준
 venues:
   # - "ArXiv"
-  - "CVPR"
-  - "ICCV"
-  - "ECCV"
-  - "NeurIPS"
+  # - "CVPR"
+  # - "ICCV"
+  # - "ECCV"
+  # - "NeurIPS"
   # - "ICML"
   # - "ICLR"
   # - "AAAI"
