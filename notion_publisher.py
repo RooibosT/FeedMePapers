@@ -76,8 +76,6 @@ class NotionPublisher:
         aff_str = f" ({paper.affiliations[0]})" if paper.affiliations else ""
         authors_str = f"{first_author}{et_al}{aff_str}"
 
-        abstract_display = paper.abstract_ko if paper.abstract_ko else paper.abstract
-
         properties = {
             "Title": {"title": [{"text": {"content": _truncate(paper.title, 200)}}]},
             "Authors": {"rich_text": _build_rich_text(authors_str)},
@@ -85,7 +83,7 @@ class NotionPublisher:
             "Date": {"date": {"start": paper.date[:10]} if paper.date else None},
             "URL": {"url": paper.url or None},
             "ArXiv ID": {"rich_text": [{"text": {"content": paper.arxiv_id}}]},
-            "Abstract (KO)": {"rich_text": _build_rich_text(abstract_display)},
+            "Abstract (KO)": {"rich_text": _build_rich_text(paper.abstract_ko) if paper.abstract_ko else [{"text": {"content": ""}}]},
             "Novelty": {"rich_text": _build_rich_text(paper.novelty_ko)},
             "Keywords": {"multi_select": [{"name": kw} for kw in paper.keywords]},
             "Searched": {"date": {"start": date.today().isoformat()}},
@@ -97,7 +95,7 @@ class NotionPublisher:
             del properties["URL"]
 
         body_blocks = []
-        if abstract_display:
+        if paper.abstract_ko:
             body_blocks.append({
                 "object": "block",
                 "type": "heading_3",
@@ -106,10 +104,10 @@ class NotionPublisher:
             body_blocks.append({
                 "object": "block",
                 "type": "paragraph",
-                "paragraph": {"rich_text": _build_rich_text(abstract_display)},
+                "paragraph": {"rich_text": _build_rich_text(paper.abstract_ko)},
             })
 
-        if paper.abstract and paper.abstract_ko:
+        if paper.abstract:
             body_blocks.append({
                 "object": "block",
                 "type": "heading_3",

@@ -11,117 +11,77 @@
 - **Notion 자동 정리** — 논문 정보를 Notion 데이터베이스에 자동 등록, 중복 논문 skip
 - **검색 메타데이터** — 검색 키워드, 검색 날짜 자동 기록
 
-## Notion Database Schema
+## Quick Start
 
-| Property | Type | 설명 |
-|---|---|---|
-| Title | Title | 논문 제목 |
-| Authors | Rich Text | 1저자 + et al. (소속 있으면 포함) |
-| Venue | Select | 학회/저널명 |
-| Date | Date | 논문 발표일 |
-| URL | URL | 논문 링크 |
-| ArXiv ID | Rich Text | arXiv 논문 ID |
-| Abstract (KO) | Rich Text | 한국어 번역 초록 |
-| Novelty | Rich Text | 핵심 novelty 한국어 요약 |
-| Keywords | Multi Select | 검색에 사용된 키워드 |
-| Searched | Date | 프로그램 실행일 (조사 날짜) |
-
-페이지 본문에는 한국어 초록과 영어 원문 초록이 함께 포함됩니다.
-
-## Prerequisites
-
-### 1. Ollama
-
-로컬 LLM 서버가 필요합니다. Docker 또는 네이티브 설치 중 택일:
-
-```bash
-# Docker (권장, GPU 사용)
-docker run -d --gpus=all -v ollama:/root/.ollama -p 11434:11434 --name ollama ollama/ollama:latest
-
-# 모델 다운로드
-docker exec ollama ollama pull qwen2.5:7b
-```
-
-```bash
-# 네이티브 설치
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull qwen2.5:7b
-```
-
-> **GPU VRAM**: Qwen2.5:7b 기준 약 5GB. 10GB 이하 GPU에서 동작 가능.
->
-> 다른 모델도 사용 가능합니다. `config.yaml`에서 `llm.model`을 변경하세요.
-
-### 2. Notion API
-
-1. [Notion Integrations](https://www.notion.so/profile/integrations)에서 **New integration** 생성
-2. Capabilities에서 **Read content**, **Insert content**, **Update content** 활성화
-3. Internal Integration Token 복사 (`ntn_` 또는 `secret_`으로 시작)
-4. 논문을 정리할 Notion 페이지에서 `···` → **Connect to** → 생성한 integration 연결
-
-### 3. Python
-
-Python 3.10+ 필요.
-
-## Installation
+### 1. 설치
 
 ```bash
 git clone https://github.com/RooibosT/FeedMePapers.git
 cd FeedMePapers
-
-# 가상환경 생성 (conda 또는 venv)
-conda create -n feedmepapers python=3.11 -y
-conda activate feedmepapers
-# 또는
-# python -m venv .venv && source .venv/bin/activate
-
-pip install -r requirements.txt
+bash install.sh
 ```
 
-## Configuration
+`install.sh`가 자동으로 처리하는 항목:
+- conda 환경 생성 (없으면 venv fallback)
+- Python 패키지 설치
+- Ollama 설치 + 모델 다운로드 (`qwen2.5:7b`)
+- `.env` 파일 생성
 
-### 1. 환경 변수 (.env)
+### 2. Notion 연결 (수동)
 
-```bash
-cp .env.example .env
-```
+Notion API는 토큰 발급이 필요하므로 수동으로 진행합니다.
 
-`.env` 파일을 열어 Notion 토큰을 입력합니다:
+**a)** [Notion Integrations](https://www.notion.so/profile/integrations)에서 **New integration** 생성 후 Token 복사
+
+**b)** `.env` 파일에 토큰 입력
 
 ```env
 NOTION_TOKEN=ntn_your_token_here
-NOTION_DATABASE_ID=           # 아래 setup 단계에서 자동 생성
-S2_API_KEY=                   # 선택사항 (없어도 동작, 있으면 rate limit 완화)
 ```
 
-### 2. Notion 데이터베이스 생성
+**c)** 논문을 정리할 Notion 페이지에서 `···` → **Connect to** → 생성한 integration 선택
 
-논문을 정리할 Notion 페이지의 ID를 찾아 아래 명령을 실행합니다:
+**d)** 데이터베이스 자동 생성
 
 ```bash
-# 페이지 URL에서 ID 확인: https://notion.so/workspace/PAGE_ID
 python main.py --setup-notion-db YOUR_PAGE_ID
 ```
 
-출력된 `NOTION_DATABASE_ID`를 `.env`에 추가합니다.
+페이지 ID만 입력하면 데이터베이스가 자동 생성되고, `.env`에 DB ID가 자동 저장됩니다.
 
-> **페이지 ID 찾기**: Notion 페이지 URL의 마지막 32자리 hex 값이 페이지 ID입니다.
-> 예: `https://notion.so/myworkspace/Paper-AI-30c249225458...` → `30c24922-5458-...`
+> **페이지 ID 찾기**: Notion 페이지 URL의 마지막 32자리 hex 값.
+> `https://notion.so/myworkspace/Paper-AI-30c249225458...` → `30c24922-5458-80d0-...`
 
-### 3. 검색 설정 (config.yaml)
+### 3. 검색 키워드 설정
+
+`config.yaml`에서 본인의 연구 분야에 맞게 키워드를 수정합니다:
 
 ```yaml
-# 검색 키워드 (여러 개 가능)
 keywords:
   - "embodied AI"
   - "robot navigation"
   - "visual navigation"
+```
 
-# 검색 기간 (최근 N일)
-date_range_days: 7
+### 4. 실행
 
-# 키워드당 최대 검색 결과 수
-max_results_per_keyword: 20
+```bash
+python main.py
+```
+
+실행할 때마다 기존 데이터베이스에 논문이 누적되며, 이미 등록된 논문은 자동으로 skip됩니다.
+
+## Configuration
+
+### config.yaml
+
+```yaml
+keywords:                         # 검색 키워드 (여러 개 가능)
+  - "embodied AI"
+  - "robot navigation"
+
+date_range_days: 7                # 검색 기간 (최근 N일)
+max_results_per_keyword: 20       # 키워드당 최대 결과 수
 
 # 학회 필터 (비워두면 전체 검색)
 venues:
@@ -133,107 +93,104 @@ venues:
   # - "IROS"
   # - "ICRA"
 
-# 로컬 LLM 설정
 llm:
-  provider: "ollama"
-  model: "qwen2.5:7b"
+  model: "qwen2.5:7b"            # Ollama 모델명
   base_url: "http://localhost:11434"
-  timeout: 120
-  temperature: 0.3
+  temperature: 0.3                # 낮을수록 일관된 번역
 
-# Notion 설정
 notion:
-  enabled: true
+  enabled: true                   # false면 Notion 저장 skip
 
-# 출력 설정
 output:
   console: true
   json_file: true
   json_dir: "results"
 ```
 
-## Usage
+### .env
 
-### 기본 실행
-
-```bash
-python main.py
+```env
+NOTION_TOKEN=ntn_...              # Notion integration token
+NOTION_DATABASE_ID=...            # --setup-notion-db로 자동 생성/저장
+S2_API_KEY=                       # 선택사항 (rate limit 완화)
 ```
 
-실행 흐름:
-1. Semantic Scholar + arXiv에서 논문 검색
-2. Ollama LLM으로 한국어 번역 + novelty 요약
-3. Notion 데이터베이스에 등록 (중복 자동 skip)
-4. `results/` 디렉토리에 JSON 저장
-
-### 옵션
+## Usage
 
 ```bash
-# 다른 config 파일 사용
-python main.py -c my_config.yaml
-
-# LLM 번역 없이 검색 + Notion 등록만
-python main.py --no-llm
-
-# Notion 없이 검색 + 번역만 (JSON 저장)
-python main.py --no-notion
-
-# Notion DB 새로 생성
-python main.py --setup-notion-db PAGE_ID
+python main.py                           # 전체 파이프라인 실행
+python main.py -c my_config.yaml         # 다른 config 사용
+python main.py --no-llm                  # LLM 번역 skip
+python main.py --no-notion               # Notion 저장 skip
+python main.py --setup-notion-db PAGE_ID # Notion DB 자동 생성
 ```
 
 ### 정기 실행 (cron)
 
-매주 월요일 오전 9시에 자동 실행:
-
-```bash
-crontab -e
-```
-
 ```cron
-0 9 * * 1 cd /path/to/FeedMePapers && /path/to/conda/envs/feedmepapers/bin/python main.py >> cron.log 2>&1
+# 매주 월요일 오전 9시
+0 9 * * 1 cd /path/to/FeedMePapers && /path/to/python main.py >> cron.log 2>&1
 ```
+
+## Notion Database Schema
+
+| Property | Type | 설명 |
+|---|---|---|
+| Title | Title | 논문 제목 |
+| Authors | Rich Text | 1저자 + et al. |
+| Venue | Select | 학회/저널명 |
+| Date | Date | 논문 발표일 |
+| URL | URL | 논문 링크 |
+| ArXiv ID | Rich Text | arXiv 논문 ID |
+| Abstract (KO) | Rich Text | 한국어 번역 초록 |
+| Novelty | Rich Text | 핵심 novelty 한국어 요약 |
+| Keywords | Multi Select | 검색에 사용된 키워드 |
+| Searched | Date | 프로그램 실행일 |
+
+페이지 본문에는 한국어 초록과 영어 원문 초록이 함께 포함됩니다.
 
 ## Project Structure
 
 ```
 FeedMePapers/
-├── main.py               # CLI 엔트리포인트 & 파이프라인 오케스트레이터
-├── searcher.py            # Semantic Scholar + arXiv 검색 모듈
-├── llm_processor.py       # Ollama LLM 한국어 번역 + novelty 추출
-├── notion_publisher.py    # Notion 데이터베이스 퍼블리셔
-├── config.yaml            # 검색/LLM/Notion 설정
-├── .env.example           # 환경 변수 템플릿
-├── requirements.txt       # Python 의존성
-└── results/               # JSON 출력 디렉토리
+├── install.sh              # 원클릭 설치 스크립트
+├── main.py                 # CLI 엔트리포인트
+├── searcher.py             # Semantic Scholar + arXiv 검색
+├── llm_processor.py        # Ollama LLM 번역 + novelty 추출
+├── notion_publisher.py     # Notion 데이터베이스 퍼블리셔
+├── config.yaml             # 검색/LLM/Notion 설정
+├── .env.example            # 환경 변수 템플릿
+├── requirements.txt        # Python 의존성
+└── results/                # JSON 출력 디렉토리
 ```
 
 ## Troubleshooting
 
 ### Semantic Scholar Rate Limit (429)
 
-API key 없이 사용 시 1req/s 제한. 자동 재시도 (최대 4회, exponential backoff) 하지만, 키워드가 많으면 [API key 발급](https://www.semanticscholar.org/product/api#api-key-form) 권장.
+API key 없이 사용 시 1req/s 제한. 자동 재시도 (최대 4회, exponential backoff) 적용. 키워드가 많으면 [API key 발급](https://www.semanticscholar.org/product/api#api-key-form) 권장.
 
 ### Ollama 연결 실패
 
 ```bash
-# Docker 상태 확인
-docker ps | grep ollama
-
-# 모델 확인
-docker exec ollama ollama list
-
-# 직접 테스트
-curl http://localhost:11434/api/tags
+curl http://localhost:11434/api/tags    # Ollama 상태 확인
+docker ps | grep ollama                 # Docker인 경우
+docker start ollama                     # 컨테이너 재시작
 ```
 
 ### 한국어 번역에 중국어 섞임
 
-Qwen 모델 특성상 간헐적으로 발생. 자동 재시도 (2회) + 중국어 문자 제거 로직이 적용되어 있습니다. 심하면 `config.yaml`에서 `llm.temperature`를 `0.1`로 낮춰보세요.
+Qwen 모델 특성상 간헐적 발생. 자동 재시도 (2회) + 중국어 문자 제거 로직 적용. `config.yaml`에서 `llm.temperature`를 `0.1`로 낮추면 개선.
 
-### Notion "NOTION_TOKEN is required"
+## GPU Requirements
 
-`.env` 파일이 프로젝트 루트에 있는지 확인하세요. `cp .env.example .env` 후 토큰 입력.
+| 모델 | VRAM | 비고 |
+|---|---|---|
+| qwen2.5:7b | ~5GB | 기본 권장 |
+| qwen2.5:3b | ~2GB | 저사양 GPU |
+| gemma2:9b | ~6GB | 중국어 오염 없음 |
+
+`config.yaml`의 `llm.model`을 변경하여 다른 모델 사용 가능.
 
 ## License
 

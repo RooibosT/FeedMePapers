@@ -89,7 +89,24 @@ def main():
             print("Error: NOTION_TOKEN env var required. Set it in .env file.")
             sys.exit(1)
         db_id = NotionPublisher.create_database(token, args.setup_notion_db)
-        print(f"\nDatabase created! Add this to your .env:\n  NOTION_DATABASE_ID={db_id}\n")
+
+        env_path = Path(".env")
+        if env_path.exists():
+            env_text = env_path.read_text()
+            if "NOTION_DATABASE_ID=" in env_text:
+                import re
+                env_text = re.sub(
+                    r"NOTION_DATABASE_ID=.*",
+                    f"NOTION_DATABASE_ID={db_id}",
+                    env_text,
+                )
+            else:
+                env_text += f"\nNOTION_DATABASE_ID={db_id}\n"
+            env_path.write_text(env_text)
+            print(f"\nDatabase created! NOTION_DATABASE_ID={db_id}")
+            print("  → .env 파일에 자동 저장되었습니다.\n")
+        else:
+            print(f"\nDatabase created! Add this to your .env:\n  NOTION_DATABASE_ID={db_id}\n")
         return
 
     search_cfg = SearchConfig(
