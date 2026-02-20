@@ -1,5 +1,7 @@
 # FeedMePapers
 
+> 📍 이 repo는 와니쨩✨ 의 아이디어를 바탕으로 제작되었음을 밝힙니다.
+
 최신 논문을 자동으로 검색하고, 로컬 LLM으로 한국어 번역 및 핵심 요약을 생성한 뒤, Notion 데이터베이스에 정리해주는 도구입니다.
 
 ## Features
@@ -11,7 +13,7 @@
 - **Notion 자동 정리** — 논문 정보를 Notion 데이터베이스에 자동 등록, 중복 논문 skip
 - **검색 메타데이터** — 검색 키워드, 검색 날짜 자동 기록
 
-## Quick Start
+## 🚀 Quick Start
 
 ### 1. 설치
 
@@ -24,8 +26,8 @@ bash install.sh
 `install.sh`가 자동으로 처리하는 항목:
 - conda 환경 생성 (없으면 venv fallback)
 - Python 패키지 설치
-- Ollama 설치 + 모델 다운로드 (`qwen2.5:7b`)
-- `.env` 파일 생성
+- Ollama 설치 + 모델 다운로드 (`qwen2.5:7b`, `qwen3:8b`, `gemma2:9b`, `exaone3.5:7.8b`)
+- `config.yaml` / `.env` 파일 생성 (예시 파일에서 자동 복사)
 
 ### 2. Notion 연결 (수동)
 
@@ -62,6 +64,8 @@ keywords:
   - "robot navigation"
   - "visual navigation"
 ```
+
+> **키워드 설정 팁**: AND 조합 키워드를 너무 많이 넣거나 세부 분야를 지나치게 좁게 설정하면 검색 결과가 적어질 수 있고, 반대로 너무 포괄적인 키워드는 주제를 벗어난 논문들이 섞일 수 있습니다. 자신의 연구 분야에 맞는 논문이 잘 검색되도록 여러 키워드 조합을 테스트해보세요! (귀찮으면 GPT/Gemini/Claude에게 키워드 추천을 부탁해보세요)
 
 ### 4. 실행
 
@@ -107,7 +111,16 @@ output:
   json_dir: "results"
 ```
 
-### .env
+### config.yaml / .env
+
+`config.yaml`과 `.env`는 개인 설정 파일이므로 git에 포함되지 않습니다. 예시 파일을 복사하여 생성하세요:
+
+```bash
+cp config.example.yaml config.yaml   # 검색 키워드, LLM 모델 등 설정
+cp .env.example .env                 # Notion 토큰 등 시크릿
+```
+
+`.env` 파일 내용:
 
 ```env
 NOTION_TOKEN=ntn_...              # Notion integration token

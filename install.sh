@@ -3,7 +3,7 @@ set -euo pipefail
 
 CONDA_ENV_NAME="feedmepapers"
 PYTHON_VERSION="3.11"
-OLLAMA_MODEL="qwen2.5:7b"
+OLLAMA_MODELS=("qwen2.5:7b" "qwen3:8b" "gemma2:9b" "exaone3.5:7.8b")
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -91,21 +91,31 @@ else
     fi
 fi
 
-info "Pulling model '${OLLAMA_MODEL}'... (this may take a few minutes)"
+info "Pulling models... (this may take a few minutes)"
 
-if command -v ollama &>/dev/null; then
-    ollama pull "$OLLAMA_MODEL"
-elif docker ps --format '{{.Names}}' | grep -q "^ollama$"; then
-    docker exec ollama ollama pull "$OLLAMA_MODEL"
-else
-    warn "Could not pull model. Start Ollama and run: ollama pull ${OLLAMA_MODEL}"
-fi
+for model in "${OLLAMA_MODELS[@]}"; do
+    info "Pulling '${model}'..."
+    if command -v ollama &>/dev/null; then
+        ollama pull "$model"
+    elif docker ps --format '{{.Names}}' | grep -q "^ollama$"; then
+        docker exec ollama ollama pull "$model"
+    else
+        warn "Could not pull model. Start Ollama and run: ollama pull ${model}"
+        break
+    fi
+    ok "Model '${model}' ready."
+done
 
-ok "Model '${OLLAMA_MODEL}' ready."
-
-# ─── 3. .env file ─────────────────────────────────────
+# ─── 3. Config files ──────────────────────────────────
 
 echo ""
+if [ ! -f config.yaml ]; then
+    cp config.example.yaml config.yaml
+    ok "config.yaml created from config.example.yaml"
+else
+    ok "config.yaml already exists."
+fi
+
 if [ ! -f .env ]; then
     cp .env.example .env
     ok ".env created from .env.example"
