@@ -13,7 +13,16 @@
 - **Notion 자동 정리** — 논문 정보를 Notion 데이터베이스에 자동 등록, 중복 논문 skip
 - **검색 메타데이터** — 검색 키워드, 검색 날짜 자동 기록
 
-## 🚀 Quick Start
+## Quick Start
+
+### 설치 방법 선택
+
+| 방법 | 명령어 | 특징 |
+|------|--------|------|
+| **uv** | `bash install.sh` → 1 선택 | 빠른 패키지 설치, CLI 엔트리포인트 자동 등록 |
+| **conda** | `bash install.sh` → 2 선택 | 격리된 conda 환경 |
+| **venv** | `bash install.sh` → 3 선택 | Python 내장, 추가 도구 불필요 |
+| **Docker** | `bash install.sh` → 4 선택 | 앱 + Ollama 컨테이너화, 호스트 환경 변경 없음 |
 
 ### 1. 설치
 
@@ -24,7 +33,7 @@ bash install.sh
 ```
 
 `install.sh`가 자동으로 처리하는 항목:
-- conda 환경 생성 (없으면 venv fallback)
+- Python 환경 생성 (uv/conda/venv 중 선택)
 - Python 패키지 설치
 - Ollama 설치 + 모델 다운로드 (`qwen2.5:7b`, `qwen3:8b`, `gemma2:9b`, `exaone3.5:7.8b`)
 - `config.yaml` / `.env` 파일 생성 (예시 파일에서 자동 복사)
@@ -32,15 +41,11 @@ bash install.sh
 설치 스크립트가 끝난 뒤에는 **현재 터미널에서 Python 환경을 다시 활성화**해야 합니다:
 
 ```bash
-conda activate feedmepapers
-# 또는 단발 실행:
-conda run -n feedmepapers python main.py
-```
-
-conda를 쓰지 않는 경우:
-
-```bash
+# uv / venv
 source .venv/bin/activate
+
+# conda
+conda activate feedmepapers
 ```
 
 ### 2. Notion 연결 (수동)
@@ -88,6 +93,76 @@ python main.py
 ```
 
 실행할 때마다 기존 데이터베이스에 논문이 누적되며, 이미 등록된 논문은 자동으로 skip됩니다.
+
+## Docker
+
+Docker를 사용하면 Ollama를 포함한 전체 환경을 컨테이너로 실행할 수 있습니다.
+
+### 시작
+
+```bash
+# Ollama 서비스 시작 (백그라운드)
+docker compose up -d ollama
+
+# 모델 다운로드 (최초 1회)
+docker compose exec ollama ollama pull qwen2.5:7b
+```
+
+### 논문 검색 실행
+
+```bash
+# 전체 파이프라인
+docker compose run --rm app
+
+# LLM/Notion 없이 검색만
+docker compose run --rm app --no-llm --no-notion
+
+# Notion DB 생성
+docker compose run --rm app --setup-notion-db YOUR_PAGE_ID
+```
+
+### GPU 사용 (NVIDIA)
+
+GPU를 사용하려면 `docker-compose.yml`의 ollama 서비스에 다음을 추가하세요:
+
+```yaml
+services:
+  ollama:
+    # ... 기존 설정 ...
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+```
+
+사전 요구사항: [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+
+### 모델 추가
+
+```bash
+docker compose exec ollama ollama pull gemma2:9b
+```
+
+`config.yaml`에서 `llm.model`을 변경하면 해당 모델을 사용합니다.
+
+## uv
+
+[uv](https://docs.astral.sh/uv/)를 사용하면 빠른 패키지 설치와 CLI 엔트리포인트를 사용할 수 있습니다.
+
+```bash
+# 설치
+uv venv --python 3.11
+uv pip install -e .
+
+# 실행
+uv run feedmepapers                          # CLI 엔트리포인트
+uv run feedmepapers --no-llm --no-notion     # 검색만
+uv run feedmepapers -c my_config.yaml        # 다른 config 사용
+uv run python main.py                        # main.py 직접 실행
+```
 
 ## Configuration
 
@@ -140,6 +215,7 @@ cp .env.example .env                 # Notion 토큰 등 시크릿
 NOTION_TOKEN=ntn_...              # Notion integration token
 NOTION_DATABASE_ID=...            # --setup-notion-db로 자동 생성/저장
 S2_API_KEY=                       # 선택사항 (rate limit 완화)
+OLLAMA_BASE_URL=                  # Docker 시 http://ollama:11434 (선택사항)
 ```
 
 ## Usage
@@ -151,7 +227,8 @@ python main.py --no-llm                  # LLM 번역 skip
 python main.py --no-notion               # Notion 저장 skip
 python main.py --setup-notion-db PAGE_ID # Notion DB 자동 생성
 conda run -n feedmepapers python main.py # conda 미활성화 상태에서 단발 실행
-PYTHONPATH=src python -m feedmepapers.cli --help  # 패키지 엔트리포인트(개발용)
+uv run feedmepapers                      # uv CLI 엔트리포인트
+docker compose run --rm app              # Docker 실행
 ```
 
 ### 정기 실행 (cron)
@@ -193,12 +270,15 @@ FeedMePapers/
 │       │   └── processor.py     # Ollama LLM 번역 + novelty 추출
 │       └── notion/
 │           └── publisher.py     # Notion 데이터베이스 퍼블리셔
-├── install.sh              # 원클릭 설치 스크립트
-├── main.py                 # 호환용 엔트리포인트 (기존 명령 유지)
-├── config.yaml             # 검색/LLM/Notion 설정
-├── .env.example            # 환경 변수 템플릿
-├── requirements.txt        # Python 의존성
-└── results/                # JSON 출력 디렉토리
+├── pyproject.toml         # 프로젝트 메타데이터 + uv/pip 의존성
+├── Dockerfile             # Python 앱 컨테이너 이미지
+├── docker-compose.yml     # app + ollama 2-서비스 스택
+├── install.sh             # 원클릭 설치 스크립트 (uv/conda/venv/Docker)
+├── main.py                # 호환용 엔트리포인트 (기존 명령 유지)
+├── config.yaml            # 검색/LLM/Notion 설정
+├── .env.example           # 환경 변수 템플릿
+├── requirements.txt       # Python 의존성 (conda/venv 호환)
+└── results/               # JSON 출력 디렉토리
 ```
 
 ## Troubleshooting
