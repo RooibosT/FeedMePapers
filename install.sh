@@ -41,27 +41,27 @@ echo "설치 방법을 선택하세요:"
 echo ""
 
 idx=1
-declare -A MENU_MAP
+MENU_ITEMS=""
 
 if $HAS_UV; then
     echo "  ${idx}) uv       (빠른 Python 패키지 매니저)"
-    MENU_MAP[$idx]="uv"
+    MENU_ITEMS="${MENU_ITEMS}${idx}:uv "
     idx=$((idx + 1))
 fi
 
 if $HAS_CONDA; then
     echo "  ${idx}) conda"
-    MENU_MAP[$idx]="conda"
+    MENU_ITEMS="${MENU_ITEMS}${idx}:conda "
     idx=$((idx + 1))
 fi
 
 echo "  ${idx}) venv     (Python 내장)"
-MENU_MAP[$idx]="venv"
+MENU_ITEMS="${MENU_ITEMS}${idx}:venv "
 idx=$((idx + 1))
 
 if $HAS_DOCKER; then
     echo "  ${idx}) Docker   (앱 + Ollama 컨테이너)"
-    MENU_MAP[$idx]="docker"
+    MENU_ITEMS="${MENU_ITEMS}${idx}:docker "
     idx=$((idx + 1))
 fi
 
@@ -69,7 +69,16 @@ echo ""
 read -rp "선택 [1]: " choice
 choice="${choice:-1}"
 
-INSTALL_METHOD="${MENU_MAP[$choice]:-}"
+INSTALL_METHOD=""
+for item in $MENU_ITEMS; do
+    key="${item%%:*}"
+    val="${item#*:}"
+    if [ "$key" = "$choice" ]; then
+        INSTALL_METHOD="$val"
+        break
+    fi
+done
+
 if [ -z "$INSTALL_METHOD" ]; then
     fail "잘못된 선택입니다: ${choice}"
 fi
@@ -89,7 +98,7 @@ install_uv() {
         ok "venv already exists."
     fi
 
-    uv pip install -e .
+    uv pip install --python .venv/bin/python -e .
     ok "Dependencies installed (editable mode). CLI command 'feedmepapers' registered."
 }
 
