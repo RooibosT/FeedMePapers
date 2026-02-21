@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 import ollama as ollama_client
 
-if TYPE_CHECKING:
-    from searcher import Paper
+from ..models import Paper
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +41,6 @@ class LLMConfig:
     base_url: str = "http://localhost:11434"
     timeout: int = 180
     temperature: float = 0.3
-
-
-import re
-import unicodedata
 
 _CJK_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]")
 

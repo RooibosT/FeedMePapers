@@ -29,6 +29,20 @@ bash install.sh
 - Ollama 설치 + 모델 다운로드 (`qwen2.5:7b`, `qwen3:8b`, `gemma2:9b`, `exaone3.5:7.8b`)
 - `config.yaml` / `.env` 파일 생성 (예시 파일에서 자동 복사)
 
+설치 스크립트가 끝난 뒤에는 **현재 터미널에서 Python 환경을 다시 활성화**해야 합니다:
+
+```bash
+conda activate feedmepapers
+# 또는 단발 실행:
+conda run -n feedmepapers python main.py
+```
+
+conda를 쓰지 않는 경우:
+
+```bash
+source .venv/bin/activate
+```
+
 ### 2. Notion 연결 (수동)
 
 Notion API는 토큰 발급이 필요하므로 수동으로 진행합니다.
@@ -136,6 +150,8 @@ python main.py -c my_config.yaml         # 다른 config 사용
 python main.py --no-llm                  # LLM 번역 skip
 python main.py --no-notion               # Notion 저장 skip
 python main.py --setup-notion-db PAGE_ID # Notion DB 자동 생성
+conda run -n feedmepapers python main.py # conda 미활성화 상태에서 단발 실행
+PYTHONPATH=src python -m feedmepapers.cli --help  # 패키지 엔트리포인트(개발용)
 ```
 
 ### 정기 실행 (cron)
@@ -166,11 +182,19 @@ python main.py --setup-notion-db PAGE_ID # Notion DB 자동 생성
 
 ```
 FeedMePapers/
+├── src/
+│   └── feedmepapers/
+│       ├── cli.py               # 메인 CLI 로직
+│       ├── config.py            # config 로더
+│       ├── models.py            # 공통 데이터 모델(Paper)
+│       ├── search/
+│       │   └── searcher.py      # Semantic Scholar + arXiv 검색
+│       ├── llm/
+│       │   └── processor.py     # Ollama LLM 번역 + novelty 추출
+│       └── notion/
+│           └── publisher.py     # Notion 데이터베이스 퍼블리셔
 ├── install.sh              # 원클릭 설치 스크립트
-├── main.py                 # CLI 엔트리포인트
-├── searcher.py             # Semantic Scholar + arXiv 검색
-├── llm_processor.py        # Ollama LLM 번역 + novelty 추출
-├── notion_publisher.py     # Notion 데이터베이스 퍼블리셔
+├── main.py                 # 호환용 엔트리포인트 (기존 명령 유지)
 ├── config.yaml             # 검색/LLM/Notion 설정
 ├── .env.example            # 환경 변수 템플릿
 ├── requirements.txt        # Python 의존성

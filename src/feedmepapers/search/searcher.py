@@ -7,9 +7,10 @@ import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Optional
 
 import requests
+
+from ..models import Paper
 
 logger = logging.getLogger(__name__)
 
@@ -19,29 +20,6 @@ S2_FIELDS = (
     "publicationDate,externalIds,url,openAccessPdf"
 )
 ARXIV_API = "http://export.arxiv.org/api/query"
-
-
-@dataclass
-class Paper:
-    title: str
-    authors: list[str]
-    affiliations: list[str]
-    abstract: str
-    venue: str
-    date: str
-    url: str
-    arxiv_id: str
-    source: str
-
-    keywords: list[str] = field(default_factory=list)
-    abstract_ko: str = ""
-    novelty_ko: str = ""
-
-    def unique_key(self) -> str:
-        if self.arxiv_id:
-            return f"arxiv:{self.arxiv_id}"
-        return f"title:{self.title.lower().strip()}"
-
 
 @dataclass
 class SearchConfig:
@@ -276,11 +254,19 @@ def search_arxiv(cfg: SearchConfig) -> list[Paper]:
 def search_papers(cfg: SearchConfig) -> list[Paper]:
     s2_papers = search_semantic_scholar(cfg)
     arxiv_papers = search_arxiv(cfg)
+    merged = merge_unique_papers(s2_papers + arxiv_papers)
 
+    logger.info(
+        f"[search] Total unique papers: {len(merged)} (S2: {len(s2_papers)}, arxiv: {len(arxiv_papers)})"
+    )
+    return merged
+
+
+def merge_unique_papers(papers: list[Paper]) -> list[Paper]:
     seen: dict[str, Paper] = {}
     merged: list[Paper] = []
 
-    for p in s2_papers + arxiv_papers:
+    for p in papers:
         key = p.unique_key()
         if key not in seen:
             seen[key] = p
@@ -292,7 +278,4 @@ def search_papers(cfg: SearchConfig) -> list[Paper]:
                     seen[key].keywords.append(kw)
 
     merged.sort(key=lambda p: p.date, reverse=True)
-    logger.info(
-        f"[search] Total unique papers: {len(merged)} (S2: {len(s2_papers)}, arxiv: {len(arxiv_papers)})"
-    )
     return merged

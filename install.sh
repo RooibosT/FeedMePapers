@@ -18,6 +18,7 @@ fail()  { echo -e "${RED}[FAIL]${NC} $*"; exit 1; }
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_DIR"
+PY_ENV_TYPE=""
 
 echo ""
 echo "================================================"
@@ -41,6 +42,7 @@ if command -v conda &>/dev/null; then
 
     eval "$(conda shell.bash hook)"
     conda activate "$CONDA_ENV_NAME"
+    PY_ENV_TYPE="conda"
 else
     warn "conda not found. Using venv instead."
 
@@ -59,6 +61,7 @@ else
     fi
 
     source .venv/bin/activate
+    PY_ENV_TYPE="venv"
 fi
 
 info "Installing Python dependencies..."
@@ -131,6 +134,15 @@ echo -e "  ${GREEN}Installation complete!${NC}"
 echo "================================================"
 echo ""
 echo "  Next steps:"
+echo ""
+if [ "$PY_ENV_TYPE" = "conda" ]; then
+    echo "  0. 새 터미널에서 Python 환경 활성화"
+    echo "     conda activate ${CONDA_ENV_NAME}"
+    echo "     (또는 단발 실행: conda run -n ${CONDA_ENV_NAME} python main.py)"
+else
+    echo "  0. 새 터미널에서 Python 환경 활성화"
+    echo "     source .venv/bin/activate"
+fi
 echo ""
 echo "  1. Notion integration 생성"
 echo "     https://www.notion.so/profile/integrations"

@@ -6,13 +6,11 @@ import logging
 import os
 import time
 from datetime import date
-from typing import TYPE_CHECKING
 
 from notion_client import Client as NotionClient
 from notion_client.errors import APIResponseError
 
-if TYPE_CHECKING:
-    from searcher import Paper
+from ..models import Paper
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +29,73 @@ def _build_rich_text(text: str) -> list[dict]:
         chunk, text = text[:MAX_RICH_TEXT_LEN], text[MAX_RICH_TEXT_LEN:]
         chunks.append({"text": {"content": chunk}})
     return chunks or [{"text": {"content": ""}}]
+
+
+def build_paper_properties(paper: Paper) -> dict:
+    first_author = paper.authors[0] if paper.authors else "Unknown"
+    et_al = " et al." if len(paper.authors) > 1 else ""
+    aff_str = f" ({paper.affiliations[0]})" if paper.affiliations else ""
+    authors_str = f"{first_author}{et_al}{aff_str}"
+
+    properties = {
+        "Title": {"title": [{"text": {"content": _truncate(paper.title, 200)}}]},
+        "Authors": {"rich_text": _build_rich_text(authors_str)},
+        "Venue": {"select": {"name": paper.venue or "Unknown"}},
+        "Date": {"date": {"start": paper.date[:10]} if paper.date else None},
+        "URL": {"url": paper.url or None},
+        "ArXiv ID": {"rich_text": [{"text": {"content": paper.arxiv_id}}]},
+        "Abstract (KO)": {
+            "rich_text": _build_rich_text(paper.abstract_ko)
+            if paper.abstract_ko
+            else [{"text": {"content": ""}}]
+        },
+        "Novelty": {"rich_text": _build_rich_text(paper.novelty_ko)},
+        "Keywords": {"multi_select": [{"name": kw} for kw in paper.keywords]},
+        "Searched": {"date": {"start": date.today().isoformat()}},
+    }
+
+    if not paper.date:
+        del properties["Date"]
+    if not paper.url:
+        del properties["URL"]
+    return properties
+
+
+def build_paper_blocks(paper: Paper) -> list[dict]:
+    body_blocks = []
+    if paper.abstract_ko:
+        body_blocks.append(
+            {
+                "object": "block",
+                "type": "heading_3",
+                "heading_3": {"rich_text": [{"text": {"content": "Abstract (KO)"}}]},
+            }
+        )
+        body_blocks.append(
+            {
+                "object": "block",
+                "type": "paragraph",
+                "paragraph": {"rich_text": _build_rich_text(paper.abstract_ko)},
+            }
+        )
+
+    if paper.abstract:
+        body_blocks.append(
+            {
+                "object": "block",
+                "type": "heading_3",
+                "heading_3": {"rich_text": [{"text": {"content": "Abstract (EN)"}}]},
+            }
+        )
+        body_blocks.append(
+            {
+                "object": "block",
+                "type": "paragraph",
+                "paragraph": {"rich_text": _build_rich_text(paper.abstract)},
+            }
+        )
+
+    return body_blocks
 
 
 class NotionPublisher:
@@ -71,53 +136,8 @@ class NotionPublisher:
             logger.info(f"[Notion] Already exists: {paper.title[:50]}...")
             return None
 
-        first_author = paper.authors[0] if paper.authors else "Unknown"
-        et_al = " et al." if len(paper.authors) > 1 else ""
-        aff_str = f" ({paper.affiliations[0]})" if paper.affiliations else ""
-        authors_str = f"{first_author}{et_al}{aff_str}"
-
-        properties = {
-            "Title": {"title": [{"text": {"content": _truncate(paper.title, 200)}}]},
-            "Authors": {"rich_text": _build_rich_text(authors_str)},
-            "Venue": {"select": {"name": paper.venue or "Unknown"}},
-            "Date": {"date": {"start": paper.date[:10]} if paper.date else None},
-            "URL": {"url": paper.url or None},
-            "ArXiv ID": {"rich_text": [{"text": {"content": paper.arxiv_id}}]},
-            "Abstract (KO)": {"rich_text": _build_rich_text(paper.abstract_ko) if paper.abstract_ko else [{"text": {"content": ""}}]},
-            "Novelty": {"rich_text": _build_rich_text(paper.novelty_ko)},
-            "Keywords": {"multi_select": [{"name": kw} for kw in paper.keywords]},
-            "Searched": {"date": {"start": date.today().isoformat()}},
-        }
-
-        if not paper.date:
-            del properties["Date"]
-        if not paper.url:
-            del properties["URL"]
-
-        body_blocks = []
-        if paper.abstract_ko:
-            body_blocks.append({
-                "object": "block",
-                "type": "heading_3",
-                "heading_3": {"rich_text": [{"text": {"content": "Abstract (KO)"}}]},
-            })
-            body_blocks.append({
-                "object": "block",
-                "type": "paragraph",
-                "paragraph": {"rich_text": _build_rich_text(paper.abstract_ko)},
-            })
-
-        if paper.abstract:
-            body_blocks.append({
-                "object": "block",
-                "type": "heading_3",
-                "heading_3": {"rich_text": [{"text": {"content": "Abstract (EN)"}}]},
-            })
-            body_blocks.append({
-                "object": "block",
-                "type": "paragraph",
-                "paragraph": {"rich_text": _build_rich_text(paper.abstract)},
-            })
+        properties = build_paper_properties(paper)
+        body_blocks = build_paper_blocks(paper)
 
         try:
             page = self.client.pages.create(
