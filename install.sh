@@ -36,7 +36,7 @@ select_models() {
         i=$((i + 1))
     done
     echo ""
-    read -rp "선택 [${default_idx}]: " model_choice
+    read -rp "선택 (default: ${default_idx}): " model_choice
     model_choice="${model_choice:-$default_idx}"
 
     SELECTED_MODELS=()
@@ -108,7 +108,7 @@ if $HAS_DOCKER; then
 fi
 
 echo ""
-read -rp "선택 [1]: " choice
+read -rp "선택 (default: 1): " choice
 choice="${choice:-1}"
 
 INSTALL_METHOD=""
@@ -355,7 +355,7 @@ echo ""
 echo "  3. Notion 페이지에 integration 연결"
 echo "     페이지 ··· → Connect to → 생성한 integration 선택"
 echo ""
-echo "  4. Notion 데이터베이스 자동 생성"
+echo "  4. Notion 데이터베이스 자동 생성 (최초 1회)"
 
 case "$INSTALL_METHOD" in
     uv)
@@ -365,6 +365,7 @@ case "$INSTALL_METHOD" in
         echo "  5. config.yaml에서 검색 키워드 설정 후 실행"
         echo "     uv run feedmepapers"
         echo "     (또는: uv run python main.py)"
+        echo "     이후에도 같은 명령어로 실행하면 됩니다."
         ;;
     docker)
         echo "     docker compose run --rm app --setup-notion-db YOUR_PAGE_ID"
@@ -372,6 +373,7 @@ case "$INSTALL_METHOD" in
         echo ""
         echo "  5. config.yaml에서 검색 키워드 설정 후 실행"
         echo "     docker compose run --rm app"
+        echo "     이후에도 같은 명령어로 실행하면 됩니다."
         ;;
     *)
         echo "     python main.py --setup-notion-db YOUR_PAGE_ID"
@@ -379,6 +381,7 @@ case "$INSTALL_METHOD" in
         echo ""
         echo "  5. config.yaml에서 검색 키워드 설정 후 실행"
         echo "     python main.py"
+        echo "     이후에도 같은 명령어로 실행하면 됩니다."
         ;;
 esac
 

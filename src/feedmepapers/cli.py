@@ -136,7 +136,11 @@ def main():
             temperature=llm_cfg_raw.get("temperature", 0.3),
         )
         logger.info("Step 2: LLM translation & novelty extraction...")
-        papers = process_papers(llm_cfg, papers)
+        try:
+            papers = process_papers(llm_cfg, papers)
+        except RuntimeError as e:
+            logger.error(str(e))
+            sys.exit(1)
     else:
         logger.info("Step 2: Skipped (--no-llm)")
 

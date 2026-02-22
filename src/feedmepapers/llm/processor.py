@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 from dataclasses import dataclass
 
@@ -123,7 +124,68 @@ def extract_novelty(config: LLMConfig, title: str, abstract: str) -> str:
     return _call_llm(config, prompt)
 
 
+def _check_gpu_preflight(config: LLMConfig) -> None:
+    """Check if the model is running on GPU. Warn and abort if CPU-only."""
+    allow_cpu = os.environ.get("FEEDMEPAPERS_ALLOW_CPU", "").strip() == "1"
+    client = ollama_client.Client(host=config.base_url, timeout=config.timeout)
+
+    def _find_model():
+        try:
+            ps = client.ps()
+        except Exception:
+            return None
+        for m in ps.get("models", []):
+            name = m.get("model", "") or m.get("name", "")
+            if config.model in name:
+                return m
+        return None
+
+    target = _find_model()
+    if target is None:
+        try:
+            client.chat(
+                model=config.model,
+                messages=[{"role": "user", "content": "ping"}],
+                options={"temperature": 0, "num_predict": 1},
+            )
+        except Exception as e:
+            logger.error(f"[LLM] Failed to load model '{config.model}': {e}")
+            return
+        target = _find_model()
+
+    if target is None:
+        logger.warning("[LLM] Could not verify GPU/CPU state via ollama ps.")
+        return
+
+    size = target.get("size", 0)
+    size_vram = target.get("size_vram", 0)
+
+    if size <= 0:
+        return
+
+    vram_ratio = size_vram / size
+    if vram_ratio >= 0.95:
+        logger.info(f"[LLM] {config.model} running on GPU (VRAM: {vram_ratio*100:.0f}%)")
+        return
+
+    pct = f"{vram_ratio*100:.0f}%"
+    msg = (
+        f"[LLM] WARNING: {config.model} is running on CPU (VRAM usage: {pct}).\n"
+        "  CPU 추론은 매우 느립니다. 가능한 원인:\n"
+        "  - Docker Ollama 컨테이너가 GPU를 점유 중 (docker compose stop ollama)\n"
+        "  - Ollama가 GPU 없이 시작됨 (ollama 재시작 필요)\n"
+        "  - 모델이 VRAM보다 큼 (더 작은 모델 사용 권장)\n"
+        "  해결: 다른 Ollama 프로세스를 종료하고 다시 시도하세요.\n"
+        "  CPU 모드를 허용하려면: FEEDMEPAPERS_ALLOW_CPU=1"
+    )
+    if allow_cpu:
+        logger.warning(msg)
+    else:
+        raise RuntimeError(msg)
+
+
 def process_papers(config: LLMConfig, papers: list[Paper]) -> list[Paper]:
+    _check_gpu_preflight(config)
     total = len(papers)
     for i, paper in enumerate(papers):
         logger.info(f"[LLM] Processing {i + 1}/{total}: {paper.title[:60]}...")
