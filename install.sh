@@ -19,6 +19,48 @@ fail()  { echo -e "${RED}[FAIL]${NC} $*"; exit 1; }
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_DIR"
 
+# ─── Model selection ────────────────────────────────
+
+select_models() {
+    echo ""
+    echo "설치할 Ollama 모델을 선택하세요 (쉼표로 구분, 예: 1,3):"
+    echo ""
+    local i=1
+    local default_idx=${#OLLAMA_MODELS[@]}
+    for model in "${OLLAMA_MODELS[@]}"; do
+        if [ "$i" -eq "$default_idx" ]; then
+            echo "  ${i}) ${model}  (추천)"
+        else
+            echo "  ${i}) ${model}"
+        fi
+        i=$((i + 1))
+    done
+    echo ""
+    read -rp "선택 [${default_idx}]: " model_choice
+    model_choice="${model_choice:-$default_idx}"
+
+    SELECTED_MODELS=()
+    IFS=',' read -ra choices <<< "$model_choice"
+    for c in "${choices[@]}"; do
+        c="$(echo "$c" | tr -d ' ')"
+        if ! [[ "$c" =~ ^[0-9]+$ ]]; then
+            warn "잘못된 번호 무시: ${c}"
+            continue
+        fi
+        idx=$((c - 1))
+        if [ "$idx" -ge 0 ] && [ "$idx" -lt "${#OLLAMA_MODELS[@]}" ]; then
+            SELECTED_MODELS+=("${OLLAMA_MODELS[$idx]}")
+        else
+            warn "잘못된 번호 무시: ${c}"
+        fi
+    done
+
+    if [ "${#SELECTED_MODELS[@]}" -eq 0 ]; then
+        warn "선택된 모델이 없습니다. 기본 모델(${OLLAMA_MODELS[0]})을 설치합니다."
+        SELECTED_MODELS=("${OLLAMA_MODELS[0]}")
+    fi
+}
+
 echo ""
 echo "================================================"
 echo "  FeedMePapers - Installation"
@@ -178,7 +220,7 @@ install_docker() {
 
     info "Waiting for Ollama to be ready..."
     local retries=0
-    while ! docker compose exec ollama curl -sf http://localhost:11434/api/tags >/dev/null 2>&1; do
+    while ! docker compose exec ollama ollama list >/dev/null 2>&1; do
         retries=$((retries + 1))
         if [ $retries -ge 30 ]; then
             fail "Ollama failed to start after 30 retries."
@@ -187,8 +229,9 @@ install_docker() {
     done
     ok "Ollama is ready."
 
+    select_models
     info "Pulling models... (this may take a few minutes)"
-    for model in "${OLLAMA_MODELS[@]}"; do
+    for model in "${SELECTED_MODELS[@]}"; do
         info "Pulling '${model}'..."
         docker compose exec ollama ollama pull "$model"
         ok "Model '${model}' ready."
@@ -234,9 +277,10 @@ if [ "$INSTALL_METHOD" != "docker" ]; then
         fi
     fi
 
+    select_models
     info "Pulling models... (this may take a few minutes)"
 
-    for model in "${OLLAMA_MODELS[@]}"; do
+    for model in "${SELECTED_MODELS[@]}"; do
         info "Pulling '${model}'..."
         if command -v ollama &>/dev/null; then
             ollama pull "$model"
