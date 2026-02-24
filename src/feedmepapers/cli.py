@@ -131,12 +131,16 @@ def main():
         llm_cfg_raw = cfg.get("llm", {})
         llm_cfg = LLMConfig(
             model=llm_cfg_raw.get("model", "qwen2.5:7b"),
-            base_url=llm_cfg_raw.get("base_url", "http://localhost:11434"),
+            base_url=os.environ.get("OLLAMA_BASE_URL") or llm_cfg_raw.get("base_url", "http://localhost:11434"),
             timeout=llm_cfg_raw.get("timeout", 120),
             temperature=llm_cfg_raw.get("temperature", 0.3),
         )
         logger.info("Step 2: LLM translation & novelty extraction...")
-        papers = process_papers(llm_cfg, papers)
+        try:
+            papers = process_papers(llm_cfg, papers)
+        except RuntimeError as e:
+            logger.error(str(e))
+            sys.exit(1)
     else:
         logger.info("Step 2: Skipped (--no-llm)")
 
