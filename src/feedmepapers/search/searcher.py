@@ -30,6 +30,7 @@ class SearchConfig:
     s2_api_key: str = ""
     fields_of_study: list[str] = field(default_factory=list)
     arxiv_categories: list[str] = field(default_factory=list)
+    exclude_keywords: list[str] = field(default_factory=list)
 
 
 def _normalize_keyword(entry) -> tuple[str, str, list[str], str]:
@@ -44,6 +45,16 @@ def _normalize_keyword(entry) -> tuple[str, str, list[str], str]:
         return s2_query, arxiv_query, list(terms), " + ".join(terms)
     kw = str(entry)
     return kw, f'(ti:"{kw}" OR abs:"{kw}")', [kw], kw
+
+
+def _build_arxiv_exclude(exclude_keywords: list[str]) -> str:
+    """Build ANDNOT clause for arxiv query from exclude keywords."""
+    if not exclude_keywords:
+        return ""
+    parts = []
+    for kw in exclude_keywords:
+        parts.append(f'(ti:"{kw}" OR abs:"{kw}")')
+    return " ANDNOT " + " ANDNOT ".join(parts)
 
 
 def _date_range(days: int) -> tuple[str, str]:
@@ -129,6 +140,16 @@ def search_semantic_scholar(cfg: SearchConfig) -> list[Paper]:
                 if not any(v.lower() in venue_lower for v in cfg.venues):
                     continue
 
+            # Exclude keywords filter (S2 API does not support ANDNOT)
+            if cfg.exclude_keywords:
+                title_lower = (item.get("title") or "").lower()
+                abstract_lower = (item.get("abstract") or "").lower()
+                if any(
+                    ek.lower() in title_lower or ek.lower() in abstract_lower
+                    for ek in cfg.exclude_keywords
+                ):
+                    continue
+
             names, affs = _parse_s2_authors(item.get("authors") or [])
 
             ext_ids = item.get("externalIds") or {}
@@ -174,7 +195,7 @@ def search_arxiv(cfg: SearchConfig) -> list[Paper]:
         logger.info(f"[arxiv] Searching: '{display}'")
 
         params = {
-            "search_query": arxiv_query + cat_filter,
+            "search_query": arxiv_query + cat_filter + _build_arxiv_exclude(cfg.exclude_keywords),
             "sortBy": "submittedDate",
             "sortOrder": "descending",
             "max_results": cfg.max_results_per_keyword,
@@ -255,6 +276,21 @@ def search_papers(cfg: SearchConfig) -> list[Paper]:
     s2_papers = search_semantic_scholar(cfg)
     arxiv_papers = search_arxiv(cfg)
     merged = merge_unique_papers(s2_papers + arxiv_papers)
+
+    # Safety-net: post-filter exclude keywords on all results
+    if cfg.exclude_keywords:
+        exclude_lower = [ek.lower() for ek in cfg.exclude_keywords]
+        before = len(merged)
+        merged = [
+            p for p in merged
+            if not any(
+                ek in p.title.lower() or ek in p.abstract.lower()
+                for ek in exclude_lower
+            )
+        ]
+        excluded = before - len(merged)
+        if excluded:
+            logger.info(f"[search] Excluded {excluded} papers by exclude_keywords")
 
     logger.info(
         f"[search] Total unique papers: {len(merged)} (S2: {len(s2_papers)}, arxiv: {len(arxiv_papers)})"
