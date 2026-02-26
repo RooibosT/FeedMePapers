@@ -273,6 +273,9 @@ def search_arxiv(cfg: SearchConfig) -> list[Paper]:
 
 
 def search_papers(cfg: SearchConfig) -> list[Paper]:
+    if cfg.exclude_keywords:
+        logger.info(f"[search] Exclude keywords active: {cfg.exclude_keywords}")
+
     s2_papers = search_semantic_scholar(cfg)
     arxiv_papers = search_arxiv(cfg)
     merged = merge_unique_papers(s2_papers + arxiv_papers)
@@ -289,8 +292,9 @@ def search_papers(cfg: SearchConfig) -> list[Paper]:
             )
         ]
         excluded = before - len(merged)
-        if excluded:
-            logger.info(f"[search] Excluded {excluded} papers by exclude_keywords")
+        logger.info(
+            f"[search] Exclude filter: {before} -> {len(merged)} papers ({excluded} excluded)"
+        )
 
     logger.info(
         f"[search] Total unique papers: {len(merged)} (S2: {len(s2_papers)}, arxiv: {len(arxiv_papers)})"
