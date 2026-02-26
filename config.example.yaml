@@ -15,6 +15,14 @@ keywords:
   - "robot navigation"
   - ["visual navigation", "indoor"]
 
+# ─── 제외 키워드 ──────────────────────────────────────────
+# 제목이나 초록에 아래 키워드가 포함된 논문을 결과에서 제외합니다.
+# arxiv는 API 쿼리에 ANDNOT 연산자로 반영, Semantic Scholar는 후처리 필터링
+# 비워두면 제외 필터 없음
+exclude_keywords:
+  # - "survey"
+  # - "review"
+
 # 검색 기간 (최근 N일)
 date_range_days: 7
 

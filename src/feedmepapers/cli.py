@@ -116,6 +116,7 @@ def main():
         s2_api_key=os.environ.get("S2_API_KEY", ""),
         fields_of_study=cfg.get("fields_of_study") or [],
         arxiv_categories=cfg.get("arxiv_categories") or [],
+        exclude_keywords=cfg.get("exclude_keywords") or [],
     )
 
     logger.info("Step 1: Searching papers...")

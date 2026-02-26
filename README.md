@@ -7,6 +7,7 @@
 ## Features
 
 - **Dual Search** — Semantic Scholar API + arXiv API 동시 검색, 자동 중복 제거
+- **제외 키워드** — 특정 키워드가 포함된 논문을 검색 결과에서 자동 제외 (arXiv: API 쿼리 레벨, S2: 후처리 필터)
 - **학회 필터링** — CVPR, ICCV, NeurIPS, CoRL 등 원하는 학회만 필터링 (미설정 시 전체 검색)
 - **로컬 LLM 번역** — Ollama 기반 로컬 LLM으로 초록 한국어 번역 + 핵심 novelty 요약 (2~3문장)
 - **중국어 오염 방지** — Qwen 등 중국어 모델 사용 시 중국어 혼입 자동 감지/재시도/제거
@@ -175,6 +176,11 @@ keywords:                         # 검색 키워드 (여러 개 가능)
 
 date_range_days: 7                # 검색 기간 (최근 N일)
 max_results_per_keyword: 20       # 키워드당 최대 결과 수
+
+# 제외 키워드 (제목/초록에 포함된 논문 제외)
+exclude_keywords:
+  - "survey"
+  - "review"
 
 # 학회 필터 (비워두면 전체 검색)
 venues:
