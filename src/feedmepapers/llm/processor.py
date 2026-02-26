@@ -184,6 +184,21 @@ def _check_gpu_preflight(config: LLMConfig) -> None:
         raise RuntimeError(msg)
 
 
+def _unload_model(config: LLMConfig) -> None:
+    """Send keep_alive=0 to tell Ollama to unload the model and free VRAM."""
+    try:
+        client = ollama_client.Client(host=config.base_url, timeout=config.timeout)
+        client.chat(
+            model=config.model,
+            messages=[{"role": "user", "content": ""}],
+            options={"num_predict": 1},
+            keep_alive=0,
+        )
+        logger.info(f"[LLM] Model '{config.model}' unloaded from VRAM")
+    except Exception as e:
+        logger.warning(f"[LLM] Failed to unload model: {e}")
+
+
 def process_papers(config: LLMConfig, papers: list[Paper]) -> list[Paper]:
     _check_gpu_preflight(config)
     total = len(papers)
@@ -200,4 +215,5 @@ def process_papers(config: LLMConfig, papers: list[Paper]) -> list[Paper]:
         else:
             logger.warning(f"  -> Translation FAILED")
 
+    _unload_model(config)
     return papers
